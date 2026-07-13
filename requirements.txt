@@ -1,0 +1,16 @@
+certifi
+demucs>=4.0.1
+soundfile>=0.12.1
+numpy
+torch>=2.0
+torchaudio>=2.0
+yt-dlp
+static-ffmpeg
+requests
+flask>=3.0
+anthropic
+deep-translator
+langdetect
+pillow
+python-dotenv
+faster-whisper

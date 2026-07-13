@@ -1,0 +1,25 @@
+# secrets & environment
+.env
+.venv/
+
+# runtime state created by the app (songs, covers, sessions, queues)
+library/
+downloads/
+avatars/
+plcovers/
+session.json
+playlists.json
+download_queue.json
+tmp*.zip
+
+# python
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
+
+# local experiments / scratch
+song.mp3
+song_instrumental.mp3
+.claude/
