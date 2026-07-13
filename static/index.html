@@ -1198,6 +1198,7 @@ const I18N = {
   "manual.saved":        { ca: "✓ Temps manuals desats.", en: "✓ Manual timing saved.", es: "✓ Tiempos manuales guardados." },
   "manual.cancelled":    { ca: "Gravació descartada.", en: "Recording discarded.", es: "Grabación descartada." },
   "manual.noSyls":       { ca: "No hi ha cap síl·laba per gravar en aquesta lletra.", en: "There are no syllables to record in these lyrics.", es: "No hay ninguna sílaba que grabar en esta letra." },
+  "manual.allDone":      { ca: "✓ {n}/{n} síl·labes fetes! Quan acabi la cançó (pots avançar-la) et demanaré si vols desar. ⌫ desfà.", en: "✓ {n}/{n} syllables done! When the song ends (feel free to seek ahead) you'll be asked to save. ⌫ undoes.", es: "✓ ¡{n}/{n} sílabas hechas! Cuando acabe la canción (puedes avanzarla) te preguntaré si guardar. ⌫ deshace." },
   "lens.editTitle":      { ca: "✎ Edita els temps a mà", en: "✎ Edit the timing by hand", es: "✎ Editar los tiempos a mano" },
   "lens.noTiming":       { ca: "Aquesta cançó encara no té temps de síl·labes: genera'ls primer amb ⟳.", en: "This song has no syllable timing yet: generate it first with ⟳.", es: "Esta canción aún no tiene tiempos de sílabas: genéralos primero con ⟳." },
   "lens.lineCountWarn":  { ca: "El resultat té {a} línies però la lletra en té {b}: la sincronització per línies quedarà desplaçada. Vols desar igualment?", en: "The result has {a} lines but the lyrics have {b}: line sync will be shifted. Save anyway?", es: "El resultado tiene {a} líneas pero la letra tiene {b}: la sincronización por líneas quedará desplazada. ¿Guardar igualmente?" },
@@ -1535,8 +1536,11 @@ let currentSet = null;
 
 function applyBalance() {
   const x = +$("balance").value;
-  gainA.gain.value = Math.min(1, 2 * (1 - x));
-  gainB.gain.value = Math.min(1, 2 * x);
+  // constant-voltage crossfade (50/50 at the middle): the two tracks are
+  // heavily correlated (original = vocals + instrumental), so summing both
+  // at full gain made the midpoint noticeably louder than the extremes
+  gainA.gain.value = 1 - x;
+  gainB.gain.value = x;
   const mirror = $("singBalance");
   if (mirror && mirror.value !== $("balance").value) mirror.value = $("balance").value;
 }
@@ -1721,6 +1725,7 @@ function advanceForMode() {
 
 function handleTrackEnd() {
   if (manualRec.active) { finishManualTiming(); return; } // recording done: confirm, don't advance
+  if (lensEdit) return; // editing ticks: plain stop, never advance/loop/random
   // in sing mode with scores on, EVERY mode goes through the score screen
   if (!$("singMode").hidden && partySettings.show_scores && myRole === "admin") {
     pendingAdvance = advanceForMode;
@@ -2966,8 +2971,11 @@ document.addEventListener("keydown", e => {
       }
       manualRec.idx++;
       markNextSyl();
-      $("transStatus").textContent = `${manualRec.idx}/${manualRec.flat.length}`;
-      if (manualRec.idx >= manualRec.flat.length) finishManualTiming();
+      // done tapping? keep recording open until the song actually ends (the
+      // user may seek past a long instrumental tail); extra SPACE is ignored
+      $("transStatus").textContent = manualRec.idx >= manualRec.flat.length
+        ? t("manual.allDone", { n: manualRec.flat.length })
+        : `${manualRec.idx}/${manualRec.flat.length}`;
     }
   } else if (e.key === "Backspace") {
     e.preventDefault(); // undo the last tap; the song keeps playing
