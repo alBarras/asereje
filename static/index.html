@@ -194,6 +194,22 @@
   #modalInput { width: 100%; margin-bottom: 14px; }
   .modalBtns { display: flex; gap: 10px; justify-content: flex-end; }
 
+  /* first-run model setup gate: fully opaque, nothing usable behind it */
+  #setupOverlay {
+    position: fixed; inset: 0; background: var(--bg); z-index: 400; /* above everything, incl. modal (300) */
+    display: flex; align-items: center; justify-content: center; text-align: center;
+  }
+  .setupCard { width: min(440px, 88vw); padding: 24px; }
+  .setupCard h2 { margin: 10px 0 8px; }
+  #setupMsg { color: var(--muted); font-size: 14.5px; line-height: 1.55; margin-bottom: 18px; white-space: pre-wrap; }
+  .setupBarWrap { height: 10px; border-radius: 6px; background: var(--panel2); overflow: hidden; margin-bottom: 8px; }
+  #setupBar {
+    height: 100%; width: 0%; border-radius: 6px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .4s;
+  }
+  #setupPct { color: var(--muted); font-size: 13px; margin-bottom: 18px; min-height: 1em; }
+  .setupBtns { display: flex; gap: 10px; justify-content: center; }
+
   /* singing mode */
   #singMode {
     position: fixed; inset: 0; z-index: 80; display: flex; flex-direction: row; gap: 16px;
@@ -737,6 +753,19 @@
       </div>
     </div>
   </div>
+  <div id="setupOverlay" hidden>
+    <div class="setupCard">
+      <div style="font-size:44px">🎤</div>
+      <h2 id="setupTitle"></h2>
+      <p id="setupMsg"></p>
+      <div class="setupBarWrap" id="setupBarWrap"><div id="setupBar"></div></div>
+      <div id="setupPct"></div>
+      <div class="setupBtns">
+        <button class="ghost" id="setupCancelBtn" hidden></button>
+        <button class="primary" id="setupStartBtn" hidden></button>
+      </div>
+    </div>
+  </div>
 
   <!-- ======================= PLAY ======================= -->
   <div id="view-play">
@@ -1208,6 +1237,15 @@ const I18N = {
   "sing.loading":        { ca: "Analitzant la veu de la cançó (només la primera vegada)...", en: "Analyzing the song's vocals (first time only)...", es: "Analizando la voz de la canción (solo la primera vez)..." },
   "joblog.done":         { ca: "Fet!", en: "All done.", es: "¡Hecho!" },
   "joblog.failed":       { ca: "Ha fallat: {error}", en: "Failed: {error}", es: "Ha fallado: {error}" },
+  "setup.title":         { ca: "Preparant el karaoke", en: "Setting up the karaoke engine", es: "Preparando el karaoke" },
+  "setup.msg":           { ca: "ASEREJÉ necessita baixar una única vegada el motor d'IA que separa la veu de la música (~350 MB). Quan acabi, ja podràs fer servir l'app.", en: "ASEREJÉ needs a one-time download of the AI engine that separates vocals from music (~350 MB). Once it finishes you can start using the app.", es: "ASEREJÉ necesita descargar una única vez el motor de IA que separa la voz de la música (~350 MB). Cuando termine, ya podrás usar la app." },
+  "setup.progress":      { ca: "{done} / {total} MB", en: "{done} / {total} MB", es: "{done} / {total} MB" },
+  "setup.starting":      { ca: "Connectant...", en: "Connecting...", es: "Conectando..." },
+  "setup.cancel":        { ca: "Cancel·la", en: "Cancel", es: "Cancelar" },
+  "setup.retry":         { ca: "⬇ Baixa'l ara", en: "⬇ Download now", es: "⬇ Descargarlo ahora" },
+  "setup.cancelledMsg":  { ca: "Has cancel·lat la baixada. Sense el motor d'IA l'app no es pot fer servir — pots tornar a començar-la quan vulguis.", en: "You cancelled the download. The app can't be used without the AI engine — you can start it again whenever you like.", es: "Has cancelado la descarga. Sin el motor de IA la app no se puede usar — puedes volver a empezarla cuando quieras." },
+  "setup.errorMsg":      { ca: "La baixada ha fallat: {error}\nComprova la connexió i torna-ho a provar.", en: "The download failed: {error}\nCheck your connection and try again.", es: "La descarga ha fallado: {error}\nComprueba la conexión y vuelve a intentarlo." },
+  "setup.guestWait":     { ca: "L'amfitrió encara està preparant el karaoke. Torna-ho a provar d'aquí a una estona!", en: "The host is still setting up the karaoke. Try again in a little while!", es: "El anfitrión aún está preparando el karaoke. ¡Vuelve a probar en un rato!" },
 };
 let uiLang = localStorage.getItem("uiLang") || "ca";
 const t = (key, vars = {}) => {
@@ -4195,9 +4233,55 @@ setInterval(async () => {
   } catch {}
 }, 1500);
 
+/* ---------- first-run model setup gate ---------- */
+let setupWasShown = false;
+function renderSetup(s) {
+  const ov = $("setupOverlay");
+  if (s.ready) { ov.hidden = true; return; }
+  ov.hidden = false;
+  setupWasShown = true;
+  $("setupTitle").textContent = t("setup.title");
+  const mb = b => Math.round(b / 1048576);
+  const barWrap = $("setupBarWrap"), cancelB = $("setupCancelBtn"), startB = $("setupStartBtn");
+  if (!s.admin) {  // spectators just wait for the host
+    $("setupMsg").textContent = t("setup.guestWait");
+    barWrap.hidden = true; $("setupPct").textContent = "";
+    cancelB.hidden = startB.hidden = true;
+  } else if (s.status === "downloading") {
+    $("setupMsg").textContent = t("setup.msg");
+    barWrap.hidden = false;
+    if (s.total_bytes > 0) {
+      $("setupBar").style.width = Math.min(100, 100 * s.done_bytes / s.total_bytes) + "%";
+      $("setupPct").textContent = t("setup.progress", { done: mb(s.done_bytes), total: mb(s.total_bytes) });
+    } else {
+      $("setupBar").style.width = "0%";
+      $("setupPct").textContent = t("setup.starting");
+    }
+    cancelB.textContent = t("setup.cancel");
+    cancelB.hidden = false; startB.hidden = true;
+  } else {  // idle / cancelled / error: gated until they download
+    $("setupMsg").textContent =
+      s.status === "error" ? t("setup.errorMsg", { error: s.error || "?" }) :
+      s.status === "cancelled" ? t("setup.cancelledMsg") : t("setup.msg");
+    barWrap.hidden = true; $("setupPct").textContent = "";
+    startB.textContent = t("setup.retry");
+    cancelB.hidden = true; startB.hidden = false;
+  }
+}
+async function pollSetup() {
+  let s = null;
+  try { s = await (await fetch("/api/setup")).json(); } catch {}
+  if (s) renderSetup(s);
+  if (!s || !s.ready) { setTimeout(pollSetup, 1000); return; }
+  if (setupWasShown) { setupWasShown = false; loadLibrary(); }  // refresh once unlocked
+}
+$("setupCancelBtn").onclick = () => fetch("/api/setup/cancel", { method: "POST" }).catch(() => {});
+$("setupStartBtn").onclick = () => fetch("/api/setup/start", { method: "POST" }).catch(() => {});
+
 /* ---------- boot ---------- */
 applyLang(uiLang);
 showView("search");
+pollSetup();
 joinSession();
 loadLibrary();
 loadPlaylists();

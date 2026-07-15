@@ -29,19 +29,21 @@ import requests
 from flask import Flask, jsonify, request, send_file, send_from_directory
 
 import remove_vocals as rv
+import setup_models
 import timing as timing_mod
 import translate as tr
+from runtime_paths import DATA
 
-BASE = Path(__file__).resolve().parent
-LIBRARY = BASE / "library"
-LEGACY_DOWNLOADS = BASE / "downloads"
+BASE = Path(__file__).resolve().parent  # read-only code/assets (static/)
+LIBRARY = DATA / "library"
+LEGACY_DOWNLOADS = DATA / "downloads"
 
 app = Flask(__name__, static_folder="static")
 jobs: dict[str, dict] = {}
 jobs_lock = threading.Lock()
 
-SESSION_FILE = BASE / "session.json"
-AVATARS = BASE / "avatars"
+SESSION_FILE = DATA / "session.json"
+AVATARS = DATA / "avatars"
 session_lock = threading.Lock()
 session_state: dict = {"admin": None, "users": {},
                        "party": {"allow_comments": True, "show_scores": True}}
@@ -50,7 +52,7 @@ _msg_seq = 0
 vote_state: dict = {"round": 0, "votes": {}}  # votes: client_id -> stars
 CID_RE = re.compile(r"^[A-Za-z0-9-]{8,64}$")
 
-DL_QUEUE_FILE = BASE / "download_queue.json"
+DL_QUEUE_FILE = DATA / "download_queue.json"
 dl_lock = threading.Lock()
 dl_items: list[dict] = []   # pending searches: {id, query, langs}
 dl_done: list[dict] = []    # recently finished: {query, status, song_id?, error?}
@@ -122,8 +124,8 @@ def write_meta(folder: Path, meta: dict) -> None:
 
 
 DEFAULT_COVER = BASE / "static" / "default-cover.jpg"
-PLAYLISTS_FILE = BASE / "playlists.json"
-PLCOVERS = BASE / "plcovers"
+PLAYLISTS_FILE = DATA / "playlists.json"
+PLCOVERS = DATA / "plcovers"
 pl_lock = threading.Lock()
 
 
@@ -851,8 +853,30 @@ def status(job_id: str):
     return jsonify({**job, "elapsed": round(time.time() - job["started"], 1)})
 
 
+@app.get("/api/setup")
+def setup_status():
+    """First-run model gate: the UI blocks until ready (see setup overlay)."""
+    return jsonify({**setup_models.status(), "admin": _is_local_request()})
+
+
+@app.post("/api/setup/start")
+def setup_start():
+    if not _is_local_request():
+        return jsonify({"error": "admin only"}), 403
+    setup_models.start()
+    return jsonify(setup_models.status())
+
+
+@app.post("/api/setup/cancel")
+def setup_cancel():
+    if not _is_local_request():
+        return jsonify({"error": "admin only"}), 403
+    setup_models.cancel()
+    return jsonify(setup_models.status())
+
+
 def upsert_env_var(key: str, value: str) -> None:
-    env_file = BASE / ".env"
+    env_file = DATA / ".env"
     lines = env_file.read_text(encoding="utf-8").splitlines() if env_file.exists() else []
     lines = [l for l in lines if not l.strip().startswith(key + "=")]
     lines.append(f"{key}={value}")
@@ -1479,7 +1503,7 @@ def playlist_export(pid: str):
 
     stamp = datetime.now().isoformat(timespec="seconds")
     manifest = {"format": 1, "name": name, "exported_at": stamp, "songs": []}
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip", dir=str(BASE))
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip", dir=str(DATA))
     try:
         with zipfile.ZipFile(tmp, "w") as z:
             for sid in song_ids:
@@ -1685,7 +1709,12 @@ def export_set(set_id: str):
     return jsonify({"exported": exported, "dest": str(dest_dir)})
 
 
-if __name__ == "__main__":
+def init_state() -> None:
+    """One-time startup: dirs, migrations, queue/session restore.
+
+    Called both by the dev entry point below and by desktop.py (the frozen
+    executable's launcher).
+    """
     LIBRARY.mkdir(exist_ok=True)
     PLCOVERS.mkdir(exist_ok=True)
     cleanup_tmp()
@@ -1699,6 +1728,11 @@ if __name__ == "__main__":
         threading.Timer(3.0, maybe_start_next).start()
     AVATARS.mkdir(exist_ok=True)
     _load_session()
+    setup_models.autostart()  # first-run: prefetch Demucs weights (UI gates on it)
+
+
+if __name__ == "__main__":
+    init_state()
     print("Admin (this computer): http://127.0.0.1:5056")
     print(f"Guests (same Wi-Fi):   {lan_url()}")
     app.run(host="0.0.0.0", port=5056, debug=False)

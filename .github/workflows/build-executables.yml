@@ -1,0 +1,85 @@
+# Builds double-clickable ASEREJÉ apps for Windows, macOS Apple Silicon and
+# macOS Intel. PyInstaller cannot cross-compile, so each target builds on its
+# own runner. See BUILDING.md for the release routine.
+#
+# Triggers: push a tag like v1.2.0 (creates a GitHub Release with the zips),
+# or run manually from the Actions tab (zips land in the run's Artifacts).
+#
+# The repo is public, so runner minutes are free. Regular pushes never
+# trigger this workflow — only v* tags and manual runs do.
+
+name: build-executables
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: windows-x64
+          - os: macos-latest        # arm64 runner
+            target: macos-apple-silicon
+          - os: macos-15-intel      # last Intel image, available until Aug 2027
+            target: macos-intel
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          python -m pip install -U pip wheel
+          if [ "${{ matrix.target }}" = "macos-intel" ]; then
+            # torch stopped shipping Intel-Mac wheels after 2.2.2
+            pip install -r requirements.txt -r packaging/requirements-build.txt \
+              -c packaging/constraints-macos-intel.txt
+          else
+            pip install -r requirements.txt -r packaging/requirements-build.txt
+          fi
+
+      - name: Pre-fetch ffmpeg into the bundle
+        run: python -c "from static_ffmpeg import run; run.get_or_fetch_platform_executables_else_raise()"
+
+      - name: Build with PyInstaller
+        run: pyinstaller --noconfirm packaging/asereje.spec
+
+      - name: Zip app (macOS)
+        if: runner.os == 'macOS'
+        run: ditto -c -k --keepParent "dist/ASEREJE.app" "ASEREJE-${{ matrix.target }}.zip"
+
+      - name: Zip app (Windows)
+        if: runner.os == 'Windows'
+        run: 7z a -tzip -mx=3 ASEREJE-windows-x64.zip ./dist/ASEREJE
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ASEREJE-${{ matrix.target }}
+          path: "*.zip"
+          compression-level: 0   # already a zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: "*.zip"
+          generate_release_notes: true

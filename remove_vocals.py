@@ -116,22 +116,35 @@ def remove_vocals(
 # YouTube download
 # ---------------------------------------------------------------------------
 
+def _ffmpeg_dir() -> Path:
+    """Directory holding ffmpeg/ffprobe.
+
+    Frozen builds ship the binaries inside the (read-only) bundle, and
+    static_ffmpeg's fetcher would try to create a lock file in there — so
+    resolve the bundled path directly instead of calling it.
+    """
+    if getattr(sys, "frozen", False):
+        bin_root = Path(sys._MEIPASS) / "static_ffmpeg" / "bin"
+        return next(p for p in bin_root.iterdir() if p.is_dir())
+    from static_ffmpeg import run as static_ffmpeg_run
+
+    print("Locating ffmpeg (downloaded once if missing)...")
+    ffmpeg_path, _ = static_ffmpeg_run.get_or_fetch_platform_executables_else_raise()
+    return Path(ffmpeg_path).parent
+
+
 def download_from_youtube(
     url: str, outdir: Path, filename_template: str = "%(title)s.%(ext)s"
 ) -> tuple[Path, dict]:
     """Download a YouTube video's audio as MP3. Returns (path, video metadata)."""
     import yt_dlp
-    from static_ffmpeg import run as static_ffmpeg_run
-
-    print("Locating ffmpeg (downloaded once if missing)...")
-    ffmpeg_path, _ = static_ffmpeg_run.get_or_fetch_platform_executables_else_raise()
 
     opts = {
         "format": "bestaudio/best",
         "outtmpl": str(outdir / filename_template),
         "restrictfilenames": True,
         "noplaylist": True,
-        "ffmpeg_location": str(Path(ffmpeg_path).parent),
+        "ffmpeg_location": str(_ffmpeg_dir()),
         "postprocessors": [
             {
                 "key": "FFmpegExtractAudio",

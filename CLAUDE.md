@@ -72,6 +72,10 @@ IP = spectator** (`_is_local_request`). Votes live in memory per round
 
 ## API map (selected)
 
+- First-run gate: `GET /api/setup`, `POST /api/setup/start|cancel`
+  (setup_models.py prefetches the Demucs weights at startup with progress;
+  the UI's #setupOverlay blocks everything until `ready`; Whisper model
+  prefetches in the background, non-blocking).
 - Jobs: `POST /api/process` (search/URL → download → Demucs → lyrics →
   translate → timing), `GET /api/status/<job>`, download queue under
   `/api/queue…` (server-side worker, auto-skips duplicates).
@@ -84,6 +88,15 @@ IP = spectator** (`_is_local_request`). Votes live in memory per round
 - Party: `/api/session/join|profile`, `/api/party`, `/api/session/party`,
   `/api/messages` (kind: text|reaction; reactions bypass allow_comments),
   `/api/votes` (+`/round`, stars 0 withdraws).
+
+## Packaging (shareable executables)
+
+See **BUILDING.md**. `desktop.py` is the frozen-app entry (tray + browser),
+`runtime_paths.py` picks the writable data dir (dev: repo dir; frozen:
+per-user app-data dir) — new writable files must go under `DATA`, bundled
+read-only assets under `BASE`. Release = push a `v*` tag; GitHub Actions
+builds Windows/mac-arm/mac-intel zips (Intel Mac needs the torch 2.2.2 pins
+in `packaging/constraints-macos-intel.txt`).
 
 ## Testing conventions
 

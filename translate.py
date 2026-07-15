@@ -10,11 +10,7 @@ be forced from the app settings regardless of configured AI keys.
 """
 
 import os
-from pathlib import Path
-
 import requests
-
-BASE = Path(__file__).resolve().parent
 
 LANG_NAMES = {
     "en": "English", "es": "Spanish", "ca": "Catalan", "fr": "French",
@@ -25,7 +21,8 @@ LANG_NAMES = {
 
 
 def _load_dotenv() -> None:
-    env = BASE / ".env"
+    from runtime_paths import DATA
+    env = DATA / ".env"
     if env.is_file():
         for line in env.read_text(encoding="utf-8").splitlines():
             line = line.strip()

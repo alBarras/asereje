@@ -16,6 +16,10 @@ tmp*.zip
 __pycache__/
 *.pyc
 
+# pyinstaller output
+build/
+dist/
+
 # macOS
 .DS_Store
 

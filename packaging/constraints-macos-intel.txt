@@ -1,0 +1,7 @@
+# Pins for the Intel-Mac (x86_64) build ONLY.
+# PyTorch stopped shipping macOS x86_64 wheels after 2.2.2, and torch 2.2
+# needs numpy 1.x. Everything else still publishes Intel-Mac wheels.
+# Used as:  pip install -r requirements.txt -c packaging/constraints-macos-intel.txt
+torch==2.2.2
+torchaudio==2.2.2
+numpy<2
