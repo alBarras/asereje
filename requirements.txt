@@ -1,5 +1,6 @@
 certifi
-demucs>=4.0.1
+# pinned: 4.1+ pulls in sphn, which has no Intel-Mac wheel (build fails in CI)
+demucs==4.0.1
 soundfile>=0.12.1
 numpy
 torch>=2.0
