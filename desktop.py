@@ -11,14 +11,58 @@ Also runnable in dev for testing:  .venv/bin/python desktop.py
 
 import multiprocessing
 import os
+import shutil
 import socket
+import subprocess
 import sys
 import threading
 import time
 import webbrowser
+from pathlib import Path
 
 PORT = 5056
 ADMIN_URL = f"http://127.0.0.1:{PORT}"
+
+
+def _chromium_candidates():
+    """Installed Chromium-family browsers, most preferred first."""
+    if sys.platform == "darwin":
+        apps = [
+            "Google Chrome.app/Contents/MacOS/Google Chrome",
+            "Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+            "Brave Browser.app/Contents/MacOS/Brave Browser",
+            "Chromium.app/Contents/MacOS/Chromium",
+        ]
+        roots = [Path("/Applications"), Path.home() / "Applications"]
+        return [r / a for a in apps for r in roots if (r / a).exists()]
+    if os.name == "nt":
+        rels = [
+            r"Google\Chrome\Application\chrome.exe",
+            r"Microsoft\Edge\Application\msedge.exe",
+            r"BraveSoftware\Brave-Browser\Application\brave.exe",
+        ]
+        roots = [os.environ.get(v) for v in
+                 ("ProgramFiles", "ProgramFiles(x86)", "LocalAppData")]
+        return [Path(r) / rel for rel in rels for r in roots
+                if r and (Path(r) / rel).exists()]
+    names = ["google-chrome", "google-chrome-stable", "chromium",
+             "chromium-browser", "microsoft-edge", "brave-browser"]
+    return [p for p in (shutil.which(n) for n in names) if p]
+
+
+def _open_window(url: str = ADMIN_URL) -> None:
+    """Open the UI as a chromeless app window; plain browser tab as fallback."""
+    for browser in _chromium_candidates():
+        try:
+            subprocess.Popen(
+                [str(browser), f"--app={url}"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            return
+        except OSError:
+            continue
+    webbrowser.open(url)
 
 
 def _port_in_use() -> bool:
@@ -72,16 +116,16 @@ def _run_with_tray() -> None:
         icon.visible = True
         if _port_in_use():
             # Another instance already runs: just show its UI and bow out.
-            webbrowser.open(ADMIN_URL)
+            _open_window()
             icon.stop()
             return
         state["lan"] = _start_server()
         if _wait_for_server():
-            webbrowser.open(ADMIN_URL)
+            _open_window()
         icon.update_menu()
 
     def open_ui(icon, item):
-        webbrowser.open(ADMIN_URL)
+        _open_window()
 
     def quit_app(icon, item):
         icon.stop()
@@ -103,11 +147,11 @@ def _run_with_tray() -> None:
 
 def _run_headless() -> None:
     if _port_in_use():
-        webbrowser.open(ADMIN_URL)
+        _open_window()
         return
     lan = _start_server()
     if _wait_for_server():
-        webbrowser.open(ADMIN_URL)
+        _open_window()
     print(f"Admin (this computer): {ADMIN_URL}")
     print(f"Guests (same Wi-Fi):   {lan}")
     print("Close this window (or Ctrl+C) to stop ASEREJÉ.")
