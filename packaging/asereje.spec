@@ -47,7 +47,7 @@ exe = EXE(
     exclude_binaries=True,
     name="ASEREJE",
     console=False,
-    icon=[str(ROOT / "packaging" / "icon.png")],  # Pillow converts to ico/icns
+    icon=[str(ROOT / "packaging" / "icon.ico")],
 )
 
 coll = COLLECT(
@@ -61,7 +61,7 @@ if sys.platform == "darwin":
     app = BUNDLE(
         coll,
         name="ASEREJE.app",
-        icon=str(ROOT / "packaging" / "icon.png"),
+        icon=str(ROOT / "packaging" / "icon.icns"),
         bundle_identifier="cat.albertborras.asereje",
         info_plist={
             "CFBundleDisplayName": "ASEREJÉ",

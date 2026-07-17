@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Asereje — el teu karaoke</title>
+<link rel="icon" type="image/png" href="/static/logo.png">
+<link rel="apple-touch-icon" href="/static/logo.png">
 <style>
   :root {
     --bg: #12141a; --panel: #1b1e27; --panel2: #232733; --line: #303645;
@@ -31,7 +33,10 @@
   h2 { font-size: 17px; margin: 0 0 12px; }
   .err { color: var(--accent); }
 
-  #langSwitch { position: relative; display: flex; justify-content: flex-end; margin-bottom: 4px; }
+  #topRow { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  #brandLogo { width: 46px; height: 46px; }
+  .brandTitle { max-width: min(300px, 75%); height: auto; margin: 2px 0 12px; }
+  #langSwitch { position: relative; display: flex; justify-content: flex-end; }
   #langBtn { padding: 6px 12px; font-size: 13px; color: var(--muted); border-radius: 8px; }
   #langMenu {
     position: absolute; top: 100%; right: 0; margin-top: 4px; min-width: 140px;
@@ -315,6 +320,7 @@
   }
   .spectBox { width: min(420px, 100%); text-align: center; }
   .spectBox h1 { margin-bottom: 4px; }
+  .spectBox .brandTitle { max-width: min(220px, 70%); margin: 0 0 4px; }
   .spectBox .fields { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
   .spectBox input, .spectBox textarea {
     width: 100%; padding: 13px 14px; border-radius: 10px; border: 1px solid var(--line);
@@ -479,17 +485,19 @@
 </head>
 <body>
 <div class="wrap">
-  <div id="langSwitch">
-    <button id="langBtn">🌐 CA ▾</button>
-    <div id="langMenu" hidden>
-      <div class="langOpt" data-lang="ca">Català</div>
-      <div class="langOpt" data-lang="en">English</div>
-      <div class="langOpt" data-lang="es">Español</div>
+  <div id="topRow">
+    <img id="brandLogo" src="/static/logo.png" alt="ASEREJÉ">
+    <div id="langSwitch">
+      <button id="langBtn">🌐 CA ▾</button>
+      <div id="langMenu" hidden>
+        <div class="langOpt" data-lang="ca">Català</div>
+        <div class="langOpt" data-lang="en">English</div>
+        <div class="langOpt" data-lang="es">Español</div>
+      </div>
     </div>
   </div>
   <header style="text-align:center">
-    <h1>ASEREJÉ</h1>
-    <p class="sub" data-i18n="sub"></p>
+    <img class="brandTitle" src="/static/title.png" alt="ASEREJÉ — karaoke">
   </header>
 
   <nav>
@@ -698,7 +706,7 @@
   </div>
   <div id="spectView" hidden>
     <div class="spectBox">
-      <h1>ASEREJÉ</h1>
+      <img class="brandTitle" src="/static/title.png" alt="ASEREJÉ — karaoke">
       <p class="sub" data-i18n="spect.title"></p>
       <div class="fields" id="spectSetup">
         <input id="spectAlias" maxlength="24" data-i18n-ph="spect.aliasPh" autocomplete="off">

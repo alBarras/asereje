@@ -106,7 +106,7 @@ library and downloaded models are stored separately and survive.
 | `packaging/asereje.spec` | PyInstaller recipe (bundled data, hidden imports, .app metadata). |
 | `packaging/requirements-build.txt` | pyinstaller + pystray. |
 | `packaging/constraints-macos-intel.txt` | Old-torch pins for the Intel-Mac build. |
-| `packaging/icon.png` | App/tray icon (PyInstaller converts to .icns/.ico). |
+| `packaging/icon.icns` / `icon.ico` | App icon (macOS / Windows), generated from `static/logo.png` (which is also the favicon and tray icon). |
 | `.github/workflows/build-executables.yml` | The 3-platform build + Release. |
 
 ## Gotchas when changing code

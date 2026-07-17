@@ -95,9 +95,15 @@ def _start_server() -> str:
 
 
 def _make_icon_image():
-    """Simple generated tray glyph: magenta disc, white eighth note."""
+    """Tray icon: the app logo, or a drawn fallback glyph if it's missing."""
     from PIL import Image, ImageDraw
 
+    base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+    try:
+        logo = Image.open(base / "static" / "logo.png").convert("RGBA")
+        return logo.resize((128, 128), Image.LANCZOS)
+    except OSError:
+        pass
     img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     d.ellipse((2, 2, 62, 62), fill=(214, 40, 122, 255))
